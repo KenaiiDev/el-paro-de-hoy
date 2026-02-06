@@ -59,6 +59,15 @@ export default async function HomePage() {
             >
               GitHub
             </a>
+            {" | "}
+            <a
+              href="https://github.com/KenaiiDev/el-paro-de-hoy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:opacity-100"
+            >
+              Source code
+            </a>
           </p>
         </footer>
       </div>
