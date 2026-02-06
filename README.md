@@ -1,36 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ¿Hay Paro de Transporte Hoy?
 
-## Getting Started
+Una app simple que responde la pregunta más importante de la mañana: **¿hay paro de transporte hoy en el AMBA?**
 
-First, run the development server:
+Porque nadie quiere enterarse en la parada del colectivo.
+
+## ¿Qué hace?
+
+La app scrapea noticias de Google en tiempo real buscando información sobre paros de transporte en el Área Metropolitana de Buenos Aires (AMBA). Si encuentra algo, te muestra:
+
+- **SI** o **NO** hay paro (bien grande, imposible no verlo)
+- **Qué líneas están afectadas** (colectivos, trenes, subtes)
+- **Última actualización** de la información
+
+El favicon cambia de color como un semáforo: 🔴 rojo si hay paro, 🟢 verde si todo normal.
+
+## Tecnologías
+
+- **Next.js 16** - Framework principal
+- **TypeScript** - Para no meter la pata
+- **Cheerio** - Scraping de noticias
+- **Upstash Redis** - Caché de datos
+- **Tailwind CSS** - Estilos
+
+## Cómo funciona
+
+1. Busca en Google News artículos con "paro transporte AMBA" de las últimas 6 horas
+2. Entra a cada artículo que mencione "paro" en el titular
+3. Verifica que el artículo mencione "hoy" o la fecha actual
+4. Extrae las líneas afectadas usando regex (colectivos, trenes, subtes)
+5. Filtra falsos positivos (artículos relacionados, paros pasados)
+6. Cachea el resultado en Redis
+
+## Desarrollo local
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+# Instalar dependencias
+pnpm install
+
+# Configurar variables de entorno
+# Crear .env.local con:
+# UPSTASH_REDIS_REST_URL=...
+# UPSTASH_REDIS_REST_TOKEN=...
+
+# Correr el servidor
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abrí [http://localhost:3000](http://localhost:3000) y listo.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Notas técnicas
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+El scraper está optimizado para detectar diferentes formatos de menciones:
 
-## Learn More
+- "Línea 60"
+- "líneas 161, 501, 228"
+- "subte A, C y H"
+- "tren Roca"
 
-To learn more about Next.js, take a look at the following resources:
+Los regex filtran artículos relacionados para evitar tomar paros de otros días o menciones irrelevantes.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Autor
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Hecho por [Lucas Villanueva](https://www.lucasvillanueva.tech/)
 
-## Deploy on Vercel
+[GitHub](https://github.com/KenaiiDev)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Licencia
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT
