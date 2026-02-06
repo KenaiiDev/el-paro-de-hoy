@@ -10,19 +10,19 @@ Porque nadie quiere enterarse en la parada del colectivo.
 
 La app scrapea noticias de Google en tiempo real buscando información sobre paros de transporte en el Área Metropolitana de Buenos Aires (AMBA). Si encuentra algo, te muestra:
 
-- **SI** o **NO** hay paro (bien grande, imposible no verlo)
-- **Qué líneas están afectadas** (colectivos, trenes, subtes)
-- **Última actualización** de la información
+- **SI** o **NO** hay paro
+- **Qué líneas están afectadas**
+- **Última actualización**
 
 El favicon cambia de color como un semáforo: 🔴 rojo si hay paro, 🟢 verde si todo normal.
 
 ## Tecnologías
 
-- **Next.js 16** - Framework principal
-- **TypeScript** - Para no meter la pata
-- **Cheerio** - Scraping de noticias
-- **Upstash Redis** - Caché de datos
-- **Tailwind CSS** - Estilos
+- **Next.js 16**
+- **TypeScript**
+- **Cheerio**
+- **Upstash Redis**
+- **Tailwind CSS**
 
 ## Cómo funciona
 
