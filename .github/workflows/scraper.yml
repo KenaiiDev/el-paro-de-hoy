@@ -1,0 +1,14 @@
+name: Scraper Automático
+
+on:
+  schedule:
+    - cron: "0 * * * *" # Cada hora en punto
+  workflow_dispatch: # Permite ejecutarlo manualmente desde GitHub
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ejecutar scraper
+        run: |
+          curl -X GET ${{ secrets.SCRAPER_URL }}/api/scraper
