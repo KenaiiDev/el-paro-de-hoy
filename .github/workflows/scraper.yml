@@ -2,8 +2,8 @@ name: Scraper Automático
 
 on:
   schedule:
-    - cron: "0 * * * *" # Cada hora en punto
-  workflow_dispatch: # Permite ejecutarlo manualmente desde GitHub
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
 
 jobs:
   scrape:
