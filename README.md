@@ -4,6 +4,8 @@ Una app simple que responde la pregunta más importante de la mañana: **¿hay p
 
 Porque nadie quiere enterarse en la parada del colectivo.
 
+**[Ver app en vivo](https://el-paro-de-hoy.vercel.app/)**
+
 ## ¿Qué hace?
 
 La app scrapea noticias de Google en tiempo real buscando información sobre paros de transporte en el Área Metropolitana de Buenos Aires (AMBA). Si encuentra algo, te muestra:
