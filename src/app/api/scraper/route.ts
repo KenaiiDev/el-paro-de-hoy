@@ -139,7 +139,7 @@ function extractAffectedLines(
   }
 
   const standaloneListRegex =
-    /\b(\d{1,3}(?:\s*[,\-]\s*\d{1,3}){2,}(?:\s+y\s+\d{1,3})?)(?:\.|;|$|\s+[A-Z])/g;
+    /\b(\d{1,3}(?:\s*\([^)]+\))?(?:\s*[,\-]\s*\d{1,3}(?:\s*\([^)]+\))?){2,}(?:\s+y\s+\d{1,3}(?:\s*\([^)]+\))?)?)(?:\.|;|$|\s+[A-Z])/g;
   for (match of strikeContext.matchAll(standaloneListRegex)) {
     const numbers = match[1].match(/\d{1,3}/g) || [];
     if (numbers.length >= 3) {
