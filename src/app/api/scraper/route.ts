@@ -55,6 +55,12 @@ function isTodayMentioned(content: string): boolean {
   const dayNumber = today.getDate();
   const monthName = MESES[today.getMonth()];
 
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowDayOfWeek = DIAS_SEMANA[tomorrow.getDay()];
+  const tomorrowDayNumber = tomorrow.getDate();
+  const tomorrowMonthName = MESES[tomorrow.getMonth()];
+
   const lowerContent = content.toLowerCase();
 
   const todayPatterns = [
@@ -70,7 +76,21 @@ function isTodayMentioned(content: string): boolean {
     "siguiente",
     "anunciado para",
     "será el",
+    "el " + tomorrowDayOfWeek,
+    "este " + tomorrowDayOfWeek,
+    tomorrowDayOfWeek + " " + tomorrowDayNumber,
+    tomorrowDayNumber + " de " + tomorrowMonthName,
   ];
+
+  const otherDays = DIAS_SEMANA.filter((day) => day !== dayOfWeek);
+  otherDays.forEach((day) => {
+    if (
+      lowerContent.includes("el " + day) ||
+      lowerContent.includes("este " + day)
+    ) {
+      notTodayPatterns.push(day);
+    }
+  });
 
   if (notTodayPatterns.some((pattern) => lowerContent.includes(pattern))) {
     return false;
