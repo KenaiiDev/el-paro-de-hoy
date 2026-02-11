@@ -18,6 +18,7 @@ const transportationNames = [
   "Subte D",
   "Subte E",
   "Subte H",
+  "Premetro",
 ];
 
 const DIAS_SEMANA = [
@@ -103,6 +104,7 @@ function extractAffectedLines(
   content: string,
   html: string,
   mustMentionToday = false,
+  sourceUrl = "",
 ): string[] {
   const affected: string[] = [];
 
@@ -178,6 +180,14 @@ function extractAffectedLines(
     }
   });
 
+  const allSubwayRegex =
+    /(?:todas las l[íi]neas de subte|paro de subte|subte completo|todo el subte)/gi;
+  if (allSubwayRegex.test(strikeContext)) {
+    ["A", "B", "C", "D", "E", "H"].forEach((letter) =>
+      affected.push(`Subte ${letter}`),
+    );
+  }
+
   const subteLetterRegex = /(?:subte|l[íi]nea)s?\s+([A-H](?:[,\sy]+[A-H])*)/gi;
   for (match of strikeContext.matchAll(subteLetterRegex)) {
     const letters = match[1].match(/[A-H]/g) || [];
@@ -247,6 +257,7 @@ export async function GET() {
             articleContent,
             articleData,
             true,
+            article.url,
           );
           if (linesFound.length > 0) {
             affectedLines = [...affectedLines, ...linesFound];
