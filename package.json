@@ -1,6 +1,6 @@
 {
   "name": "el-paro-de-hoy",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -13,6 +13,7 @@
     "@vercel/analytics": "^1.6.1",
     "axios": "^1.13.4",
     "cheerio": "^1.2.0",
+    "google-news-url-decoder": "^1.2.1",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3"

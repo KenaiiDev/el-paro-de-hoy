@@ -14,21 +14,25 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "¿Hay paro de transporte hoy? | AMBA",
+  title: "¿Hay paro hoy? | Buenos Aires",
   description:
-    "Consultá en tiempo real si hay paro de transporte en el Área Metropolitana de Buenos Aires (AMBA). Información actualizada de colectivos, trenes y subtes.",
+    "Consultá en tiempo real si hay paro en transporte, educación, salud, aeronáutico, bancarios, justicia y más en Buenos Aires y Argentina.",
   keywords: [
     "paro",
     "transporte",
     "AMBA",
     "Buenos Aires",
-    "colectivos",
-    "trenes",
-    "subte",
+    "paro hoy",
+    "educación",
+    "salud",
+    "bancarios",
+    "aeronautico",
+    "justicia",
   ],
   openGraph: {
-    title: "¿Hay paro de transporte hoy?",
-    description: "Consultá en tiempo real si hay paro de transporte en AMBA",
+    title: "¿Hay paro hoy?",
+    description:
+      "Estado en tiempo real de paros por sector en Buenos Aires y Argentina",
     type: "website",
   },
 };
@@ -39,7 +43,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="es">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

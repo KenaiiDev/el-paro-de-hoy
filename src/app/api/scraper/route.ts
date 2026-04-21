@@ -1,294 +1,208 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { NextResponse } from "next/server";
-import axios from "axios";
-import * as cheerio from "cheerio";
-import { StrikeService } from "@/services/strike.service";
+import { SECTORS, SectorConfig } from "@/lib/sectors";
+import { SectorService } from "@/services/sector.service";
+import { isTodayMentioned } from "@/lib/scraper/date-filter";
+import { extractAffectedLines } from "@/lib/scraper/line-extractor";
+import {
+  fetchGoogleNewsLinks,
+  fetchArticleText,
+  buildGoogleNewsUrl,
+  ArticleLink,
+} from "@/lib/scraper/google-news";
+import { SectorStatus } from "@/types/strike";
 
-const transportationNames = [
-  "Roca",
-  "Mitre",
-  "Sarmiento",
-  "Belgrano Norte",
-  "Belgrano Sur",
-  "San Martín",
-  "Urquiza",
-  "Subte A",
-  "Subte B",
-  "Subte C",
-  "Subte D",
-  "Subte E",
-  "Subte H",
-  "Premetro",
-];
+const MAX_ARTICLES_PER_SECTOR = 5;
 
-const DIAS_SEMANA = [
-  "domingo",
-  "lunes",
-  "martes",
-  "miércoles",
-  "jueves",
-  "viernes",
-  "sábado",
-];
-
-const MESES = [
-  "enero",
-  "febrero",
-  "marzo",
-  "abril",
-  "mayo",
-  "junio",
-  "julio",
-  "agosto",
-  "septiembre",
-  "octubre",
-  "noviembre",
-  "diciembre",
-];
-
-function isTodayMentioned(content: string): boolean {
-  const now = new Date();
-  const today = new Date(
-    now.toLocaleString("en-US", { timeZone: "America/Argentina/Buenos_Aires" }),
-  );
-
-  const dayOfWeek = DIAS_SEMANA[today.getDay()];
-  const dayNumber = today.getDate();
-  const monthName = MESES[today.getMonth()];
-
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowDayOfWeek = DIAS_SEMANA[tomorrow.getDay()];
-  const tomorrowDayNumber = tomorrow.getDate();
-  const tomorrowMonthName = MESES[tomorrow.getMonth()];
-
-  const lowerContent = content.toLowerCase();
-
-  const todayPatterns = [
-    "hoy",
-    "este " + dayOfWeek,
-    dayOfWeek + " " + dayNumber,
-    dayNumber + " de " + monthName,
-  ];
-
-  const notTodayPatterns = [
-    "mañana",
-    "próximo",
-    "siguiente",
-    "anunciado para",
-    "será el",
-    "el " + tomorrowDayOfWeek,
-    "este " + tomorrowDayOfWeek,
-    tomorrowDayOfWeek + " " + tomorrowDayNumber,
-    tomorrowDayNumber + " de " + tomorrowMonthName,
-  ];
-
-  const otherDays = DIAS_SEMANA.filter((day) => day !== dayOfWeek);
-  otherDays.forEach((day) => {
-    if (
-      lowerContent.includes("el " + day) ||
-      lowerContent.includes("este " + day)
-    ) {
-      notTodayPatterns.push(day);
-    }
-  });
-
-  if (notTodayPatterns.some((pattern) => lowerContent.includes(pattern))) {
-    return false;
-  }
-
-  return todayPatterns.some((pattern) => lowerContent.includes(pattern));
+interface QueryDebug {
+  query: string;
+  searchUrl: string;
+  rawElementsFound: number;
+  headlinesRejected: string[];
+  linksAccepted: number;
 }
 
-function extractAffectedLines(
-  content: string,
-  html: string,
-  mustMentionToday = false,
-  sourceUrl = "",
-): string[] {
-  const affected: string[] = [];
+interface ArticleDebug {
+  url: string;
+  title: string;
+  sectorMatch: boolean;
+  todayMentioned: boolean;
+  linesFound: number;
+}
 
-  if (mustMentionToday) {
-    const todayMentioned =
-      /hoy|este\s+(?:lunes|martes|miércoles|jueves|viernes|sábado|domingo)/i.test(
-        content,
-      );
-    if (!todayMentioned) {
-      return [];
-    }
+interface SectorScrapeResult {
+  status: SectorStatus;
+  queriesDebug: QueryDebug[];
+  articlesDebug: ArticleDebug[];
+}
 
-    const relatedSectionPatterns = [
-      /artículos relacionados.{0,2000}/gi,
-      /te puede interesar.{0,2000}/gi,
-      /más noticias.{0,2000}/gi,
-      /notas relacionadas.{0,2000}/gi,
-      /leé también.{0,2000}/gi,
-    ];
+function deduplicateByUrl(links: ArticleLink[]): ArticleLink[] {
+  return Array.from(new Map(links.map((l) => [l.url, l])).values());
+}
 
-    let filteredContent = content;
-    relatedSectionPatterns.forEach((pattern) => {
-      filteredContent = filteredContent.replace(pattern, "");
+async function collectLinksForSector(queries: string[]): Promise<{
+  links: ArticleLink[];
+  queriesDebug: QueryDebug[];
+}> {
+  const allLinks: ArticleLink[] = [];
+  const queriesDebug: QueryDebug[] = [];
+
+  for (const query of queries) {
+    const result = await fetchGoogleNewsLinks(query);
+    queriesDebug.push({
+      query,
+      searchUrl: buildGoogleNewsUrl(query),
+      rawElementsFound: result.rawElementsFound,
+      headlinesRejected: result.headlinesRejected,
+      linksAccepted: result.links.length,
     });
-
-    content = filteredContent;
+    allLinks.push(...result.links);
   }
 
-  const strikeContextRegex =
-    /(?:paro|sin servicio|afecta|no funcionan?|suspendido|cerrado).{0,600}/gi;
-  const strikeBlocks = content.match(strikeContextRegex) || [];
-  const strikeContext = strikeBlocks.join(" ");
+  return { links: deduplicateByUrl(allLinks), queriesDebug };
+}
 
-  if (!strikeContext) {
-    return [];
-  }
+function articleMatchesSector(title: string, sectorKeywords: string[]): boolean {
+  const lower = title.toLowerCase();
+  return sectorKeywords.some((kw) => lower.includes(kw));
+}
 
-  const busRegexCap = /Línea\s+(\d{1,3})\b/g;
-  let match;
-  for (match of strikeContext.matchAll(busRegexCap)) {
-    affected.push(`Línea ${match[1]}`);
-  }
+async function scrapeTransportSector(
+  links: ArticleLink[],
+  sectorKeywords: string[]
+): Promise<{
+  isStrikeActive: boolean;
+  affectedLines: string[];
+  headline?: string;
+  articlesDebug: ArticleDebug[];
+}> {
+  const articlesDebug: ArticleDebug[] = [];
+  let isStrikeActive = false;
+  let allAffectedLines: string[] = [];
+  let headline: string | undefined;
 
-  const busRegexLow = /l[íi]nea\s+(\d{1,3})\b/gi;
-  for (match of strikeContext.matchAll(busRegexLow)) {
-    affected.push(`Línea ${match[1]}`);
-  }
+  for (const article of links.slice(0, MAX_ARTICLES_PER_SECTOR)) {
+    const sectorMatch = articleMatchesSector(article.title, sectorKeywords);
+    const todayMentioned = isTodayMentioned(article.title);
 
-  const listRegex =
-    /l[íi]neas?\s+(\d{1,3}(?:\s*,\s*\d{1,3})+(?:\s+y\s+\d{1,3})?)/gi;
-  for (match of strikeContext.matchAll(listRegex)) {
-    const numbers = match[1].match(/\d{1,3}/g) || [];
-    numbers.forEach((num) => affected.push(`Línea ${num}`));
-  }
-
-  const standaloneListRegex =
-    /\b(\d{1,3}(?:\s*\([^)]+\))?(?:\s*[,\-]\s*\d{1,3}(?:\s*\([^)]+\))?){2,}(?:\s+y\s+\d{1,3}(?:\s*\([^)]+\))?)?)(?:\.|;|$|\s+[A-Z])/g;
-  for (match of strikeContext.matchAll(standaloneListRegex)) {
-    const numbers = match[1].match(/\d{1,3}/g) || [];
-    if (numbers.length >= 3) {
-      numbers.forEach((num) => affected.push(`Línea ${num}`));
+    if (!sectorMatch || !todayMentioned) {
+      articlesDebug.push({ url: article.url, title: article.title, sectorMatch, todayMentioned, linesFound: 0 });
+      continue;
     }
+
+    isStrikeActive = true;
+    headline = headline ?? article.title;
+
+    let bodyText = article.snippet;
+    try {
+      const fetched = await fetchArticleText(article.url);
+      if (fetched.length > bodyText.length) bodyText = fetched;
+    } catch {
+      // keep snippet as fallback
+    }
+
+    const lines = extractAffectedLines(bodyText);
+    allAffectedLines = [...allAffectedLines, ...lines];
+    articlesDebug.push({ url: article.url, title: article.title, sectorMatch, todayMentioned, linesFound: lines.length });
   }
 
-  transportationNames.forEach((name) => {
-    const nameRegex = new RegExp(
-      `(?:paro|sin servicio por paro).{0,30}${name}|${name}.{0,30}(?:paro|sin servicio por paro)`,
-      "i",
-    );
-    const match = strikeContext.match(nameRegex);
-    if (match) {
-      affected.push(name);
-    }
+  return {
+    isStrikeActive,
+    affectedLines: Array.from(new Set(allAffectedLines)),
+    headline,
+    articlesDebug,
+  };
+}
+
+function scrapeGenericSector(
+  links: ArticleLink[],
+  sectorKeywords: string[]
+): {
+  isStrikeActive: boolean;
+  headline?: string;
+  articlesDebug: ArticleDebug[];
+} {
+  const articlesDebug: ArticleDebug[] = [];
+  let isStrikeActive = false;
+  let headline: string | undefined;
+
+  for (const article of links.slice(0, MAX_ARTICLES_PER_SECTOR)) {
+    const sectorMatch = articleMatchesSector(article.title, sectorKeywords);
+    const todayMentioned = isTodayMentioned(article.title);
+
+    articlesDebug.push({ url: article.url, title: article.title, sectorMatch, todayMentioned, linesFound: 0 });
+
+    if (!sectorMatch || !todayMentioned) continue;
+
+    isStrikeActive = true;
+    headline = headline ?? article.title;
+    break;
+  }
+
+  return { isStrikeActive, headline, articlesDebug };
+}
+
+async function scrapeSector(sector: SectorConfig): Promise<SectorScrapeResult> {
+  const { links, queriesDebug } = await collectLinksForSector(sector.queries);
+
+  const lastUpdate = new Date().toLocaleString("es-AR", {
+    timeZone: "America/Argentina/Buenos_Aires",
   });
 
-  const allSubwayRegex =
-    /(?:todas las l[íi]neas de subte|paro de subte|subte completo|todo el subte)/gi;
-  if (allSubwayRegex.test(strikeContext)) {
-    ["A", "B", "C", "D", "E", "H"].forEach((letter) =>
-      affected.push(`Subte ${letter}`),
-    );
+  if (sector.id === "transport") {
+    const result = await scrapeTransportSector(links, sector.sectorKeywords);
+    return {
+      status: {
+        id: sector.id,
+        isStrikeActive: result.isStrikeActive,
+        affectedLines: result.affectedLines,
+        headline: result.headline,
+        lastUpdate,
+      },
+      queriesDebug,
+      articlesDebug: result.articlesDebug,
+    };
   }
 
-  const subteLetterRegex = /(?:subte|l[íi]nea)s?\s+([A-H](?:[,\sy]+[A-H])*)/gi;
-  for (match of strikeContext.matchAll(subteLetterRegex)) {
-    const letters = match[1].match(/[A-H]/g) || [];
-    letters.forEach((letter) => affected.push(`Subte ${letter}`));
-  }
-
-  return Array.from(new Set(affected));
+  const result = scrapeGenericSector(links, sector.sectorKeywords);
+  return {
+    status: {
+      id: sector.id,
+      isStrikeActive: result.isStrikeActive,
+      affectedLines: [],
+      headline: result.headline,
+      lastUpdate,
+    },
+    queriesDebug,
+    articlesDebug: result.articlesDebug,
+  };
 }
 
 export async function GET() {
   try {
-    const searchUrl = `https://www.google.com/search?q=paro+transporte+hoy+amba+trenes+colectivos+subte&tbs=qdr:h6&tbm=nws`;
+    const results: SectorScrapeResult[] = [];
 
-    const { data } = await axios.get(searchUrl, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept-Language": "es-AR,es;q=0.9",
-      },
-    });
-
-    const $ = cheerio.load(data);
-    const articleLinks = $("a.WlydOe");
-    const articlesToScrape: { url: string; headline: string }[] = [];
-
-    articleLinks.each((_, element) => {
-      const link = $(element).attr("href");
-      const headline = $(element).text();
-
-      if (headline.toLowerCase().includes("paro") && link) {
-        const articleUrl = link.startsWith("/url?q=")
-          ? decodeURIComponent(link.split("/url?q=")[1].split("&")[0])
-          : link;
-        articlesToScrape.push({ url: articleUrl, headline });
-      }
-    });
-
-    let isStrikeActive = false;
-    let affectedLines: string[] = [];
-    let mainHeadline = "No se encontraron noticias sobre paros";
-
-    for (const article of articlesToScrape.slice(0, 5)) {
-      try {
-        const { data: articleData } = await axios.get(article.url, {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept-Language": "es-AR,es;q=0.9",
-          },
-          timeout: 5000,
-        });
-
-        const $article = cheerio.load(articleData);
-        const articleContent = $article("body").text();
-        const mentionsToday = isTodayMentioned(articleContent);
-
-        if (mentionsToday) {
-          isStrikeActive = true;
-          if (
-            !mainHeadline ||
-            mainHeadline === "No se encontraron noticias sobre paros"
-          ) {
-            mainHeadline = article.headline;
-          }
-
-          const linesFound = extractAffectedLines(
-            articleContent,
-            articleData,
-            true,
-            article.url,
-          );
-          if (linesFound.length > 0) {
-            affectedLines = [...affectedLines, ...linesFound];
-          }
-        }
-      } catch (error) {
-        continue;
-      }
+    for (const sector of SECTORS) {
+      const result = await scrapeSector(sector);
+      await SectorService.updateStatus(sector.id, result.status);
+      results.push(result);
     }
 
-    affectedLines = Array.from(new Set(affectedLines));
-
-    const newStatus = {
-      isStrikeActive,
-      affectedLines,
-      lastUpdate: new Date().toLocaleString("es-AR", {
-        timeZone: "America/Argentina/Buenos_Aires",
-      }),
-      headline: mainHeadline,
-    };
-
-    await StrikeService.updateStatus(newStatus);
-    return NextResponse.json(newStatus);
+    return NextResponse.json({
+      sectors: results.map((r) => r.status),
+      debug: results.map((r) => ({
+        id: r.status.id,
+        queries: r.queriesDebug,
+        articles: r.articlesDebug,
+      })),
+    });
   } catch (error) {
     console.error("Scraper error:", error);
     return NextResponse.json(
       {
-        error: "Error al verificar estado del transporte",
+        error: "Error al verificar estados de paro",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
