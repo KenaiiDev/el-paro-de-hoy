@@ -1,5 +1,7 @@
 export type SectorId =
-  | "transport"
+  | "subte"
+  | "tren"
+  | "colectivo"
   | "aeronautic"
   | "education"
   | "health"

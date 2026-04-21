@@ -10,15 +10,25 @@ export interface SectorConfig {
 
 export const SECTORS: readonly SectorConfig[] = [
   {
-    id: "transport",
-    name: "Transporte",
-    queries: [
-      "paro colectivos hoy amba",
-      "paro trenes hoy amba",
-      "paro subte hoy amba",
-    ],
+    id: "colectivo",
+    name: "Colectivos",
+    queries: ["paro colectivos hoy amba"],
     scope: "AMBA",
-    sectorKeywords: ["colectivo", "tren", "subte", "transporte", "ramal", "línea"],
+    sectorKeywords: ["colectivo", "transporte", "línea", "chofer", "uta"],
+  },
+  {
+    id: "tren",
+    name: "Trenes",
+    queries: ["paro trenes hoy amba"],
+    scope: "AMBA",
+    sectorKeywords: ["tren", "transporte", "ramal", "línea", "fraternidad"],
+  },
+  {
+    id: "subte",
+    name: "Subtes",
+    queries: ["paro subte hoy amba"],
+    scope: "AMBA",
+    sectorKeywords: ["subte", "metro", "premetro", "transporte", "línea", "agtsyp"],
   },
   {
     id: "aeronautic",

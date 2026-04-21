@@ -148,7 +148,7 @@ async function scrapeSector(sector: SectorConfig): Promise<SectorScrapeResult> {
     timeZone: "America/Argentina/Buenos_Aires",
   });
 
-  if (sector.id === "transport") {
+  if (["colectivo", "tren", "subte"].includes(sector.id)) {
     const result = await scrapeTransportSector(links, sector.sectorKeywords);
     return {
       status: {

@@ -44,7 +44,7 @@ export function SectorCard({ sector, status }: SectorCardProps) {
 
   return (
     <article
-      className={`border-l-4 p-4 flex flex-col gap-1 h-44 ${
+      className={`border-l-4 p-4 flex flex-col gap-1 min-h-44 ${
         isStrike
           ? "border-red-600 bg-red-950/10"
           : "border-emerald-700 bg-emerald-950/10"
