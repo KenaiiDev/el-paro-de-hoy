@@ -13,6 +13,7 @@ export const SectorService = {
     const results = await Promise.all(
       SECTORS.map((s) => redis.get<SectorStatus>(cacheKey(s.id)))
     );
+    console.log({results})
     return results.filter((r): r is SectorStatus => r !== null);
   },
 

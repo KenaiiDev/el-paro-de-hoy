@@ -7,21 +7,21 @@ interface SectorCardProps {
 }
 
 function AffectedLinesBadges({ lines }: { lines: string[] }) {
-  const visible = lines.slice(0, 6);
+  const visible = lines.slice(0, 5);
   const overflow = lines.length - visible.length;
 
   return (
-    <div className="flex flex-wrap gap-1 mt-3">
+    <div className="flex flex-wrap gap-1.5 mt-4 relative z-10">
       {visible.map((line) => (
         <span
           key={line}
-          className="text-[10px] font-mono uppercase tracking-wider bg-red-950 text-red-300 border border-red-900 px-2 py-0.5"
+          className="text-[10px] font-semibold uppercase tracking-wider bg-red-50 text-red-700 border border-red-200 px-2 py-1 rounded-md"
         >
           {line}
         </span>
       ))}
       {overflow > 0 && (
-        <span className="text-[10px] font-mono text-neutral-600">
+        <span className="text-[10px] font-semibold text-red-700 bg-red-100 border border-red-200 px-2 py-1 rounded-md">
           +{overflow}
         </span>
       )}
@@ -31,7 +31,7 @@ function AffectedLinesBadges({ lines }: { lines: string[] }) {
 
 function ScopeBadge({ scope }: { scope: string }) {
   return (
-    <span className="text-[10px] font-mono uppercase tracking-widest text-neutral-600 border border-neutral-800 px-1.5 py-0.5">
+    <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-600 bg-zinc-100 border border-zinc-200 px-2 py-1 rounded-full relative z-10">
       {scope}
     </span>
   );
@@ -43,35 +43,37 @@ export function SectorCard({ sector, status }: SectorCardProps) {
     isStrike && status?.affectedLines && status.affectedLines.length > 0;
 
   return (
-    <article
-      className={`border-l-4 p-4 flex flex-col gap-1 min-h-44 ${
-        isStrike
-          ? "border-red-600 bg-red-950/10"
-          : "border-emerald-700 bg-emerald-950/10"
-      }`}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <h2 className="text-xs font-mono uppercase tracking-widest text-neutral-400 leading-tight">
+    <article className="relative overflow-hidden p-5 flex flex-col gap-1 min-h-[12rem] rounded-xl bg-white border border-zinc-200 shadow-sm transition-all hover:shadow-md">
+      <div className="flex items-center justify-between gap-2 relative z-10 mb-3">
+        <h2 className="text-sm font-semibold uppercase tracking-widest text-zinc-900 leading-tight">
           {sector.name}
         </h2>
         <ScopeBadge scope={sector.scope} />
       </div>
 
-      <p
-        className={`text-5xl font-black leading-none mt-2 ${
-          isStrike ? "text-red-500" : "text-emerald-500"
-        }`}
-      >
-        {isStrike ? "SI" : "NO"}
-      </p>
+      <div className="mt-2 flex items-center gap-2 relative z-10">
+        <div
+          className={`w-3 h-3 rounded-full ${
+            isStrike ? "bg-red-500" : "bg-emerald-500"
+          }`}
+        ></div>
+        <p
+          className={`text-2xl md:text-3xl font-serif font-bold tracking-tight ${
+            isStrike ? "text-red-700" : "text-emerald-700"
+          }`}
+        >
+          {isStrike ? "Paro" : "Normal"}
+        </p>
+      </div>
 
-      {hasLines && (
-        <AffectedLinesBadges lines={status!.affectedLines} />
-      )}
-
-      {!status && (
-        <p className="text-xs font-mono text-neutral-700 mt-2">Sin datos</p>
-      )}
+      <div className="mt-auto relative z-10 flex flex-col justify-end">
+        {hasLines && <AffectedLinesBadges lines={status!.affectedLines} />}
+        {!status && (
+          <p className="text-xs font-medium text-zinc-500 mt-3">
+            Sin datos
+          </p>
+        )}
+      </div>
     </article>
   );
 }

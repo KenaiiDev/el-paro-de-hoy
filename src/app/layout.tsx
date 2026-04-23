@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Outfit, Lora } from "next/font/google";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const outfitSans = Outfit({
+  variable: "--font-outfit-sans",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const loraSerif = Lora({
+  variable: "--font-lora-serif",
   subsets: ["latin"],
 });
 
@@ -45,7 +45,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${outfitSans.variable} ${loraSerif.variable} antialiased relative min-h-screen selection:bg-zinc-200 selection:text-zinc-900 bg-zinc-50 text-zinc-900`}
       >
         {children}
         <Analytics />

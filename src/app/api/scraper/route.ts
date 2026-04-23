@@ -146,6 +146,7 @@ async function scrapeSector(sector: SectorConfig): Promise<SectorScrapeResult> {
 
   const lastUpdate = new Date().toLocaleString("es-AR", {
     timeZone: "America/Argentina/Buenos_Aires",
+    hour12: false,
   });
 
   if (["colectivo", "tren", "subte"].includes(sector.id)) {
