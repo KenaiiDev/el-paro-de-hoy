@@ -53,7 +53,7 @@ export default async function HomePage() {
           <p className="text-sm text-zinc-500">
             Desarrollado por{" "}
             <a
-              href="https://www.lucasvillanueva.tech/"
+              href="https://www.lucasvillanueva.com.ar/"
               target="_blank"
               rel="noopener noreferrer"
               className="text-zinc-600 hover:text-zinc-900 font-medium transition-colors underline underline-offset-2 decoration-zinc-300"
