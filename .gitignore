@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# design artifacts
+DESIGN_PLAN.md
+DESIGN_MEMORY.md
+
+# agent artifacts
+.agents/
+skills-lock.json

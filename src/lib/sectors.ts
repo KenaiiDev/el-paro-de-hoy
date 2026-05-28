@@ -6,6 +6,7 @@ export interface SectorConfig {
   queries: string[];
   scope: string;
   sectorKeywords: string[];
+  affectedLabel: string;
 }
 
 export const SECTORS: readonly SectorConfig[] = [
@@ -15,6 +16,7 @@ export const SECTORS: readonly SectorConfig[] = [
     queries: ["paro colectivos hoy amba"],
     scope: "AMBA",
     sectorKeywords: ["colectivo", "transporte", "línea", "chofer", "uta"],
+    affectedLabel: "líneas",
   },
   {
     id: "tren",
@@ -22,6 +24,7 @@ export const SECTORS: readonly SectorConfig[] = [
     queries: ["paro trenes hoy amba"],
     scope: "AMBA",
     sectorKeywords: ["tren", "transporte", "ramal", "línea", "fraternidad"],
+    affectedLabel: "líneas",
   },
   {
     id: "subte",
@@ -29,6 +32,7 @@ export const SECTORS: readonly SectorConfig[] = [
     queries: ["paro subte hoy amba"],
     scope: "AMBA",
     sectorKeywords: ["subte", "metro", "premetro", "transporte", "línea", "agtsyp"],
+    affectedLabel: "líneas",
   },
   {
     id: "aeronautic",
@@ -40,6 +44,7 @@ export const SECTORS: readonly SectorConfig[] = [
     ],
     scope: "Nacional",
     sectorKeywords: ["aeronáutico", "aeronautico", "aeroparque", "ezeiza", "vuelo", "piloto", "aerolíneas", "aerolineas", "aeropuerto", "ate anac", "anac"],
+    affectedLabel: "aerolíneas",
   },
   {
     id: "education",
@@ -51,6 +56,7 @@ export const SECTORS: readonly SectorConfig[] = [
     ],
     scope: "AMBA",
     sectorKeywords: ["docente", "educación", "educacion", "escuela", "clases", "maestro", "gremio docente", "suteba", "ute"],
+    affectedLabel: "establecimientos",
   },
   {
     id: "health",
@@ -62,6 +68,7 @@ export const SECTORS: readonly SectorConfig[] = [
     ],
     scope: "AMBA",
     sectorKeywords: ["médico", "medico", "enfermero", "hospital", "salud", "clínica", "clinica", "pami", "ioma", "residentes"],
+    affectedLabel: "establecimientos",
   },
   {
     id: "public-admin",
@@ -73,6 +80,7 @@ export const SECTORS: readonly SectorConfig[] = [
     ],
     scope: "AMBA",
     sectorKeywords: ["estatal", "estado", "administración pública", "administracion publica", "empleado público", "empleado publico", "ate", "upcn"],
+    affectedLabel: "dependencias",
   },
   {
     id: "banking",
@@ -84,6 +92,7 @@ export const SECTORS: readonly SectorConfig[] = [
     ],
     scope: "Nacional",
     sectorKeywords: ["bancario", "banco", "bancarios", "asociación bancaria", "asociacion bancaria"],
+    affectedLabel: "entidades",
   },
   {
     id: "logistics",
@@ -95,6 +104,7 @@ export const SECTORS: readonly SectorConfig[] = [
     ],
     scope: "AMBA",
     sectorKeywords: ["recolección", "recoleccion", "basura", "residuos", "camionero", "logística", "logistica"],
+    affectedLabel: "sectores",
   },
   {
     id: "justice",
@@ -106,5 +116,6 @@ export const SECTORS: readonly SectorConfig[] = [
     ],
     scope: "AMBA",
     sectorKeywords: ["judicial", "justicia", "tribunal", "juzgado", "uejn", "ajb", "judiciales"],
+    affectedLabel: "dependencias",
   },
 ] as const;
