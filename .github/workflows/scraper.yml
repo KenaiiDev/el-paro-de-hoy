@@ -2,7 +2,11 @@ name: Scraper Automático
 
 on:
   schedule:
-    - cron: "0 */4 * * *"
+    # Horarios en UTC (Argentina = UTC-3).
+    # Cada 20 min entre las 5 y las 10 hs, cuando se anuncian la mayoría de los paros.
+    - cron: "*/20 8-12 * * *"
+    # Cada 3 hs el resto del día.
+    - cron: "0 */3 * * *"
   workflow_dispatch:
 
 jobs:
@@ -10,5 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ejecutar scraper
+        env:
+          SCRAPER_URL: ${{ secrets.SCRAPER_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          curl -X GET ${{ secrets.SCRAPER_URL }}/api/scraper
+          curl --fail-with-body -sS --max-time 90 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${SCRAPER_URL}/api/scraper"
