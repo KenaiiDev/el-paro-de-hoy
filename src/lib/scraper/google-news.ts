@@ -2,6 +2,8 @@ import axios from "axios";
 import * as cheerio from "cheerio";
 import { GoogleDecoder } from "google-news-url-decoder";
 import { isTodayInBuenosAires } from "@/lib/time";
+import { STRIKE_TERMS } from "./classifier";
+import { hasAnyTerm, normalize } from "./text";
 
 export interface ArticleLink {
   url: string;
@@ -25,18 +27,23 @@ const REQUEST_HEADERS = {
   "Accept-Language": "es-AR,es;q=0.9",
 };
 
-const STRIKE_HEADLINE_KEYWORDS = [
-  "paro",
-  "huelga",
-  "medida de fuerza",
+/**
+ * Filtro amplio para decidir qué titulares vale la pena clasificar.
+ * La decisión fina la toma `classifyHeadline`.
+ */
+const HEADLINE_GATE_TERMS = [
+  ...STRIKE_TERMS,
   "sin servicio",
   "protesta",
-  "movilización",
+  "movilizacion",
+  "no hay",
+  "no funcionan",
+  "paran",
+  "adhieren",
 ];
 
 function headlineMentionsStrike(title: string): boolean {
-  const lower = title.toLowerCase();
-  return STRIKE_HEADLINE_KEYWORDS.some((kw) => lower.includes(kw));
+  return hasAnyTerm(normalize(title), HEADLINE_GATE_TERMS);
 }
 
 function extractTitleFromRssHeadline(headline: string): string {
