@@ -68,7 +68,7 @@ export function SectorCard({ sector, status, expanded, onToggle }: SectorCardPro
           </button>
         )}
         {!status && (
-          <span className="text-[10px] font-medium text-zinc-400">Sin datos</span>
+          <span className="text-[10px] font-medium text-zinc-400">Sin datos de hoy</span>
         )}
       </div>
 

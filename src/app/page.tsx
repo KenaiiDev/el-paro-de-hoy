@@ -3,11 +3,20 @@ import { SECTORS } from "@/lib/sectors";
 import { DynamicFavicon } from "./components/DynamicFavicon";
 import { StrikeDashboard } from "./components/StrikeDashboard";
 
+export const revalidate = 60;
+
+function latestUpdate(statuses: { lastUpdate: string }[]): string | undefined {
+  return statuses
+    .map((s) => s.lastUpdate)
+    .sort()
+    .at(-1);
+}
+
 export default async function HomePage() {
-  const statuses = await SectorService.getAllStatuses();
+  const statuses = await SectorService.getFreshStatuses();
 
   const hasAnyStrike = statuses.some((s) => s.isStrikeActive);
-  const lastUpdate = statuses[0]?.lastUpdate;
+  const lastUpdate = latestUpdate(statuses);
 
   return (
     <main className="min-h-screen text-zinc-900">
