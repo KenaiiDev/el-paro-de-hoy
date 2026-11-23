@@ -2,6 +2,7 @@ import axios from "axios";
 import * as cheerio from "cheerio";
 import { GoogleDecoder } from "google-news-url-decoder";
 import { isTodayInBuenosAires } from "@/lib/time";
+import { createThrottle, withRetry } from "@/lib/throttle";
 
 export interface ArticleLink {
   url: string;
@@ -18,6 +19,19 @@ export interface FetchLinksResult {
 const RSS_TIMEOUT_MS = 8000;
 const ARTICLE_TIMEOUT_MS = 8000;
 const DECODE_TIMEOUT_MS = 8000;
+
+/**
+ * Google News limita las consultas en ráfaga (HTTP 429). Todas las consultas
+ * al RSS pasan por una única cola con un intervalo mínimo entre ellas.
+ */
+const RSS_MIN_INTERVAL_MS = 750;
+const RSS_RETRIES = 2;
+const RSS_RETRY_BASE_DELAY_MS = 3000;
+const throttleRss = createThrottle(RSS_MIN_INTERVAL_MS);
+
+function isRateLimited(error: unknown): boolean {
+  return axios.isAxiosError(error) && error.response?.status === 429;
+}
 
 const REQUEST_HEADERS = {
   "User-Agent":
@@ -65,10 +79,10 @@ export async function fetchGoogleNewsLinks(
   query: string
 ): Promise<FetchLinksResult> {
   const url = buildGoogleNewsUrl(query);
-  const { data } = await axios.get(url, {
-    headers: REQUEST_HEADERS,
-    timeout: RSS_TIMEOUT_MS,
-  });
+  const { data } = await withRetry(
+    () => throttleRss(() => axios.get(url, { headers: REQUEST_HEADERS, timeout: RSS_TIMEOUT_MS })),
+    { retries: RSS_RETRIES, baseDelayMs: RSS_RETRY_BASE_DELAY_MS, shouldRetry: isRateLimited }
+  );
 
   const $ = cheerio.load(data, { xmlMode: true });
   const items = $("item");
