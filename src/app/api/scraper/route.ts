@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { mapSettled } from "@/lib/concurrency";
 import { SECTORS, SectorConfig } from "@/lib/sectors";
 import { SectorService } from "@/services/sector.service";
 import { isTodayMentioned } from "@/lib/scraper/date-filter";
@@ -11,7 +12,11 @@ import {
 } from "@/lib/scraper/google-news";
 import { SectorStatus } from "@/types/strike";
 
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
 const MAX_ARTICLES_PER_SECTOR = 5;
+const SECTOR_CONCURRENCY = 3;
 
 interface QueryDebug {
   query: string;
@@ -144,10 +149,7 @@ function scrapeGenericSector(
 async function scrapeSector(sector: SectorConfig): Promise<SectorScrapeResult> {
   const { links, queriesDebug } = await collectLinksForSector(sector.queries);
 
-  const lastUpdate = new Date().toLocaleString("es-AR", {
-    timeZone: "America/Argentina/Buenos_Aires",
-    hour12: false,
-  });
+  const lastUpdate = new Date().toISOString();
 
   if (["colectivo", "tren", "subte"].includes(sector.id)) {
     const result = await scrapeTransportSector(links, sector.sectorKeywords);
@@ -178,32 +180,71 @@ async function scrapeSector(sector: SectorConfig): Promise<SectorScrapeResult> {
   };
 }
 
-export async function GET() {
-  try {
-    const results: SectorScrapeResult[] = [];
+type AuthResult = { ok: true } | { ok: false; status: number; error: string };
 
-    for (const sector of SECTORS) {
-      const result = await scrapeSector(sector);
-      await SectorService.updateStatus(sector.id, result.status);
-      results.push(result);
+/**
+ * Exige `Authorization: Bearer <CRON_SECRET>`. Es el mismo header que envía
+ * Vercel Cron, así que sirve tanto para GitHub Actions como para Vercel.
+ * En desarrollo, si no hay CRON_SECRET definido, se permite el acceso.
+ */
+function authorize(request: NextRequest): AuthResult {
+  const secret = process.env.CRON_SECRET;
+
+  if (!secret) {
+    if (process.env.NODE_ENV !== "production") return { ok: true };
+    return { ok: false, status: 500, error: "CRON_SECRET no configurado" };
+  }
+
+  if (request.headers.get("authorization") !== `Bearer ${secret}`) {
+    return { ok: false, status: 401, error: "No autorizado" };
+  }
+
+  return { ok: true };
+}
+
+export async function GET(request: NextRequest) {
+  const auth = authorize(request);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
+  const includeDebug = request.nextUrl.searchParams.get("debug") === "1";
+
+  const settled = await mapSettled(SECTORS, SECTOR_CONCURRENCY, async (sector) => {
+    const result = await scrapeSector(sector);
+    await SectorService.updateStatus(sector.id, result.status);
+    return result;
+  });
+
+  const results: SectorScrapeResult[] = [];
+  const errors: { id: string; error: string }[] = [];
+
+  settled.forEach((outcome, i) => {
+    if (outcome.status === "fulfilled") {
+      results.push(outcome.value);
+    } else {
+      const message =
+        outcome.reason instanceof Error ? outcome.reason.message : String(outcome.reason);
+      console.error(`[scraper] Sector ${SECTORS[i].id} falló:`, message);
+      errors.push({ id: SECTORS[i].id, error: message });
     }
+  });
 
-    return NextResponse.json({
-      sectors: results.map((r) => r.status),
+  if (results.length > 0) SectorService.invalidateCache();
+
+  const body = {
+    sectors: results.map((r) => r.status),
+    errors,
+    ...(includeDebug && {
       debug: results.map((r) => ({
         id: r.status.id,
         queries: r.queriesDebug,
         articles: r.articlesDebug,
       })),
-    });
-  } catch (error) {
-    console.error("Scraper error:", error);
-    return NextResponse.json(
-      {
-        error: "Error al verificar estados de paro",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 }
-    );
-  }
+    }),
+  };
+
+  // 207: algunos sectores fallaron; 500: fallaron todos.
+  const status = errors.length === 0 ? 200 : results.length > 0 ? 207 : 500;
+  return NextResponse.json(body, { status });
 }

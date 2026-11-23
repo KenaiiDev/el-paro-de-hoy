@@ -45,6 +45,7 @@ pnpm install
 # Crear un archivo .env.local con:
 # UPSTASH_REDIS_REST_URL=...
 # UPSTASH_REDIS_REST_TOKEN=...
+# CRON_SECRET=...   # opcional en desarrollo, obligatorio en producción
 
 # Iniciar el servidor de desarrollo
 pnpm dev
@@ -52,8 +53,25 @@ pnpm dev
 
 Abrí [http://localhost:3000](http://localhost:3000) para ver la aplicación localmente.
 
-Para probar u obligar la ejecución del scraper:
-Visitá o hacé un GET a la ruta de la API en el entorno local (usualmente `/api/scraper`).
+### Ejecutar el scraper
+
+La ruta `/api/scraper` requiere el header `Authorization: Bearer <CRON_SECRET>`. En desarrollo, si `CRON_SECRET` no está definido, se permite el acceso sin header.
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" "http://localhost:3000/api/scraper?debug=1"
+```
+
+Agregar `?debug=1` incluye el detalle de las consultas y artículos analizados.
+
+En producción se ejecuta desde GitHub Actions (`.github/workflows/scraper.yml`), que necesita los secrets `SCRAPER_URL` y `CRON_SECRET`. El mismo `CRON_SECRET` debe estar configurado en las variables de entorno de Vercel.
+
+### Calidad
+
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+```
 
 ## Notas técnicas
 

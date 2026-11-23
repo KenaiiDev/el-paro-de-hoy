@@ -1,74 +1,58 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
+
+const TICK_MS = 30_000;
+
+function subscribe(onChange: () => void) {
+  const id = setInterval(onChange, TICK_MS);
+  return () => clearInterval(id);
+}
+
+/** Redondeado al tick para que el snapshot sea estable entre renders. */
+function getNow() {
+  return Math.floor(Date.now() / TICK_MS) * TICK_MS;
+}
+
+function getServerNow() {
+  return null;
+}
+
+function plural(n: number, word: string) {
+  return `hace ${n} ${word}${n !== 1 ? "s" : ""}`;
+}
+
+export function formatRelative(iso: string, now: number): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "N/A";
+
+  const diffMins = Math.floor(Math.max(0, now - date.getTime()) / 60_000);
+  const diffHours = Math.floor(diffMins / 60);
+
+  if (diffMins < 1) return "hace instantes";
+  if (diffHours < 1) return plural(diffMins, "minuto");
+  if (diffHours < 24) return plural(diffHours, "hora");
+
+  return date.toLocaleString("es-AR", {
+    timeZone: "America/Argentina/Buenos_Aires",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 export function LastSync({ timestamp }: { timestamp: string | undefined }) {
-  const [displayTime, setDisplayTime] = useState<string>("Cargando...");
+  // En el servidor (y durante la hidratación) `now` es null para evitar mismatches.
+  const now = useSyncExternalStore(subscribe, getNow, getServerNow);
 
-  useEffect(() => {
-    if (!timestamp) {
-      setDisplayTime("N/A");
-      return;
-    }
-
-    const calculateTime = () => {
-      let date = new Date(timestamp);
-      
-      // Try to parse DD/MM/YYYY, HH:MM:SS (with optional AM/PM)
-      const match = timestamp.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})[,\s]+(\d{1,2}):(\d{1,2}):(\d{1,2})(?:\s*(a\.?\s*m\.?|p\.?\s*m\.?|am|pm))?/i);
-      if (match) {
-        const [_, day, month, year, h, m, s, ampm] = match;
-        let hour = Number(h);
-        if (ampm) {
-          const isPM = ampm.toLowerCase().includes('p');
-          if (isPM && hour < 12) hour += 12;
-          if (!isPM && hour === 12) hour = 0;
-        }
-        date = new Date(Number(year), Number(month) - 1, Number(day), hour, Number(m), Number(s));
-      }
-
-      if (isNaN(date.getTime())) {
-        setDisplayTime(timestamp);
-        return;
-      }
-
-      const now = new Date();
-      const diffMs = Math.max(0, now.getTime() - date.getTime());
-      const diffSecs = Math.floor(diffMs / 1000);
-      const diffMins = Math.floor(diffSecs / 60);
-      const diffHours = Math.floor(diffMins / 60);
-
-      if (diffHours < 24) {
-        if (diffMins < 1) {
-          setDisplayTime(`hace ${diffSecs} segundo${diffSecs !== 1 ? "s" : ""}`);
-        } else if (diffHours < 1) {
-          setDisplayTime(`hace ${diffMins} minuto${diffMins !== 1 ? "s" : ""}`);
-        } else {
-          setDisplayTime(`hace ${diffHours} hora${diffHours !== 1 ? "s" : ""}`);
-        }
-      } else {
-        setDisplayTime(
-          date.toLocaleString("es-AR", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          })
-        );
-      }
-    };
-
-    calculateTime();
-    
-    // Update every minute to keep relative time accurate
-    const interval = setInterval(calculateTime, 60000);
-    return () => clearInterval(interval);
-  }, [timestamp]);
+  let display = "Sin datos de hoy";
+  if (timestamp) display = now === null ? "…" : formatRelative(timestamp, now);
 
   return (
     <p className="text-sm font-medium text-zinc-500">
-      Última actualización: {displayTime}
+      Última actualización: {display}
     </p>
   );
 }
