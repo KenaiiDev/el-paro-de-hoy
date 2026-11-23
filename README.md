@@ -27,15 +27,17 @@ La aplicación incluye un contador de "sectores afectados" en la cabecera si hay
 
 ## Cómo funciona
 
-1. Busca en Google News artículos recientes utilizando consultas específicas para cada sector (ej: "paro colectivos hoy amba", "paro bancarios hoy argentina", "paro docentes hoy amba").
-2. Utiliza un pipeline robusto para decodificar las URLs ofuscadas por los redireccionamientos de Google News.
-3. Entra al sitio web original de cada artículo que mencione "paro" o palabras clave de cada sector en el titular.
-4. Verifica que el artículo mencione "hoy" o la fecha actual para descartar noticias antiguas.
-5. Extrae el estado del sector y, en el caso del transporte, las líneas afectadas utilizando expresiones regulares (regex).
-6. Filtra falsos positivos (artículos sugeridos por los diarios, paros levantados o noticias no relacionadas).
-7. Almacena el resultado temporalmente en Redis para optimizar tiempos de respuesta y no saturar las webs de noticias.
+1. Busca en Google News artículos del día utilizando consultas específicas para cada sector (ej: "paro colectivos hoy amba", "paro bancarios hoy argentina", "paro docentes hoy amba").
+2. Filtra los titulares que mencionan una medida de fuerza o una interrupción de servicio.
+3. Clasifica cada titular para el sector con un clasificador basado en reglas (`src/lib/scraper/classifier.ts`):
+   - Compara palabras completas sin tildes, así "paro" no coincide con "amparo" ni "ate" con "debate".
+   - Distingue palabras clave **fuertes** del sector ("colectivos", "UTA") de las **débiles** ("transporte"), y exige que el sector y el paro aparezcan en la misma frase del titular.
+   - Detecta si el paro es **hoy**, si está **anunciado** para otro día, si ya **pasó**, si fue **levantado** (o hay conciliación obligatoria) o si el sector **no adhiere**.
+   - Descarta interrupciones que no son paros (obras, temporal, fallas técnicas), titulares en forma de pregunta y paros de otras provincias en sectores con alcance AMBA.
+4. En transporte, entra al artículo original para confirmar el sector cuando el titular es ambiguo y para extraer las líneas afectadas (colectivos, trenes o subtes, según el sector).
+5. Guarda el resultado en Redis con un TTL. La web sólo muestra los estados actualizados hoy.
 
-## Desarrollo local
+## Desarrollo local## Desarrollo local
 
 ```bash
 # Instalar dependencias usando pnpm (requerido)
@@ -75,13 +77,15 @@ pnpm test
 
 ## Notas técnicas
 
-El scraper está altamente optimizado y modulado para distintos sectores. Además, en sectores de transporte puede detectar diferentes formatos de menciones en el texto, como:
+El extractor de líneas reconoce distintos formatos de mención en el texto:
 
-- "Línea 60" o "líneas 161, 501, 228"
-- "subte A, C y H"
+- "Línea 60", "líneas 161, 501 y 228" o listados como "17, 28, 34 (ramal 2) y 44"
+- "subte A, C y H" o "todas las líneas de subte"
 - "tren Roca" o "línea Sarmiento"
 
-El sistema cuenta con filtros avanzados para ignorar enlaces a artículos sugeridos por los propios portales de noticias o resultados genéricos, garantizando una alta precisión en la detección diaria de conflictos gremiales. La arquitectura del código sigue principios limpios (SOLID), aislando la lógica en servicios por sector.
+Ignora horarios y fechas ("entre las 10 y 14 horas") y las secciones de notas relacionadas de los portales.
+
+El clasificador se prueba con un conjunto de titulares etiquetados en `src/lib/scraper/__tests__/headlines.fixtures.ts`. Al correr `pnpm test` se informan la precisión y el recall sobre ese conjunto. Para agregar un caso nuevo (por ejemplo, un falso positivo detectado en producción), sumá el titular con el veredicto esperado por sector.
 
 ## Autor
 

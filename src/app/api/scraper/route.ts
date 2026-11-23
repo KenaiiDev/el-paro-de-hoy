@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { mapSettled } from "@/lib/concurrency";
 import { SECTORS, SectorConfig } from "@/lib/sectors";
 import { SectorService } from "@/services/sector.service";
-import { isTodayMentioned } from "@/lib/scraper/date-filter";
+import { Verdict, bodyConfirmsSector, classifyHeadline } from "@/lib/scraper/classifier";
 import { extractAffectedLines } from "@/lib/scraper/line-extractor";
 import {
   fetchGoogleNewsLinks,
@@ -15,7 +15,7 @@ import { SectorStatus } from "@/types/strike";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const MAX_ARTICLES_PER_SECTOR = 5;
+const MAX_ARTICLES_PER_SECTOR = 8;
 const SECTOR_CONCURRENCY = 3;
 
 interface QueryDebug {
@@ -29,8 +29,8 @@ interface QueryDebug {
 interface ArticleDebug {
   url: string;
   title: string;
-  sectorMatch: boolean;
-  todayMentioned: boolean;
+  verdict: Verdict;
+  reason: string;
   linesFound: number;
 }
 
@@ -66,117 +66,67 @@ async function collectLinksForSector(queries: string[]): Promise<{
   return { links: deduplicateByUrl(allLinks), queriesDebug };
 }
 
-function articleMatchesSector(title: string, sectorKeywords: string[]): boolean {
-  const lower = title.toLowerCase();
-  return sectorKeywords.some((kw) => lower.includes(kw));
-}
-
-async function scrapeTransportSector(
-  links: ArticleLink[],
-  sectorKeywords: string[]
-): Promise<{
-  isStrikeActive: boolean;
-  affectedLines: string[];
-  headline?: string;
-  articlesDebug: ArticleDebug[];
-}> {
-  const articlesDebug: ArticleDebug[] = [];
-  let isStrikeActive = false;
-  let allAffectedLines: string[] = [];
-  let headline: string | undefined;
-
-  for (const article of links.slice(0, MAX_ARTICLES_PER_SECTOR)) {
-    const sectorMatch = articleMatchesSector(article.title, sectorKeywords);
-    const todayMentioned = isTodayMentioned(article.title);
-
-    if (!sectorMatch || !todayMentioned) {
-      articlesDebug.push({ url: article.url, title: article.title, sectorMatch, todayMentioned, linesFound: 0 });
-      continue;
-    }
-
-    isStrikeActive = true;
-    headline = headline ?? article.title;
-
-    let bodyText = article.snippet;
-    try {
-      const fetched = await fetchArticleText(article.url);
-      if (fetched.length > bodyText.length) bodyText = fetched;
-    } catch {
-      // keep snippet as fallback
-    }
-
-    const lines = extractAffectedLines(bodyText);
-    allAffectedLines = [...allAffectedLines, ...lines];
-    articlesDebug.push({ url: article.url, title: article.title, sectorMatch, todayMentioned, linesFound: lines.length });
-  }
-
-  return {
-    isStrikeActive,
-    affectedLines: Array.from(new Set(allAffectedLines)),
-    headline,
-    articlesDebug,
-  };
-}
-
-function scrapeGenericSector(
-  links: ArticleLink[],
-  sectorKeywords: string[]
-): {
-  isStrikeActive: boolean;
-  headline?: string;
-  articlesDebug: ArticleDebug[];
-} {
-  const articlesDebug: ArticleDebug[] = [];
-  let isStrikeActive = false;
-  let headline: string | undefined;
-
-  for (const article of links.slice(0, MAX_ARTICLES_PER_SECTOR)) {
-    const sectorMatch = articleMatchesSector(article.title, sectorKeywords);
-    const todayMentioned = isTodayMentioned(article.title);
-
-    articlesDebug.push({ url: article.url, title: article.title, sectorMatch, todayMentioned, linesFound: 0 });
-
-    if (!sectorMatch || !todayMentioned) continue;
-
-    isStrikeActive = true;
-    headline = headline ?? article.title;
-    break;
-  }
-
-  return { isStrikeActive, headline, articlesDebug };
+async function fetchBody(article: ArticleLink): Promise<string> {
+  const fetched = await fetchArticleText(article.url);
+  return fetched.length > article.snippet.length ? fetched : article.snippet;
 }
 
 async function scrapeSector(sector: SectorConfig): Promise<SectorScrapeResult> {
   const { links, queriesDebug } = await collectLinksForSector(sector.queries);
+  const isTransport = sector.kind !== "generic";
 
-  const lastUpdate = new Date().toISOString();
+  const articlesDebug: ArticleDebug[] = [];
+  const affectedLines = new Set<string>();
+  let headline: string | undefined;
 
-  if (["colectivo", "tren", "subte"].includes(sector.id)) {
-    const result = await scrapeTransportSector(links, sector.sectorKeywords);
-    return {
-      status: {
-        id: sector.id,
-        isStrikeActive: result.isStrikeActive,
-        affectedLines: result.affectedLines,
-        headline: result.headline,
-        lastUpdate,
-      },
-      queriesDebug,
-      articlesDebug: result.articlesDebug,
-    };
+  for (const article of links.slice(0, MAX_ARTICLES_PER_SECTOR)) {
+    const classification = classifyHeadline(article.title, sector);
+    let { verdict, reason } = classification;
+    let linesFound = 0;
+
+    const needsBody =
+      isTransport &&
+      (verdict === "active" ||
+        (verdict === "possible" &&
+          classification.strength === "weak" &&
+          classification.timing === "today"));
+
+    if (needsBody) {
+      const body = await fetchBody(article);
+
+      if (verdict === "possible") {
+        if (bodyConfirmsSector(body, sector)) {
+          verdict = "active";
+          reason = "paro de transporte hoy, confirmado en el cuerpo de la nota";
+        }
+      }
+
+      if (verdict === "active") {
+        const lines = extractAffectedLines(body, sector.kind);
+        lines.forEach((l) => affectedLines.add(l));
+        linesFound = lines.length;
+      }
+    }
+
+    articlesDebug.push({ url: article.url, title: article.title, verdict, reason, linesFound });
+
+    if (verdict === "active") {
+      headline = headline ?? article.title;
+      // Para sectores genéricos alcanza con una nota; en transporte seguimos juntando líneas.
+      if (!isTransport) break;
+    }
   }
 
-  const result = scrapeGenericSector(links, sector.sectorKeywords);
   return {
     status: {
       id: sector.id,
-      isStrikeActive: result.isStrikeActive,
-      affectedLines: [],
-      headline: result.headline,
-      lastUpdate,
+      isStrikeActive: headline !== undefined,
+      affectedLines: Array.from(affectedLines),
+      headline,
+      lastUpdate: new Date().toISOString(),
     },
     queriesDebug,
-    articlesDebug: result.articlesDebug,
+    articlesDebug,
   };
 }
 
