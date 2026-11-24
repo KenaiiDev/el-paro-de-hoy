@@ -89,7 +89,7 @@ El clasificador se prueba con un conjunto de titulares etiquetados en `src/lib/s
 
 ## Autor
 
-Hecho por [Lucas Villanueva](https://www.lucasvillanueva.tech/)
+Hecho por [Lucas Villanueva](https://www.lucasvillanueva.com.ar/)
 
 [GitHub](https://github.com/KenaiiDev)
 
